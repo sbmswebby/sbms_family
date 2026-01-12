@@ -18,7 +18,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
   // =====================
   {
     id: "event-1",
-    name: "Fashion Expo 2026",
+    name: "SIMA Expo 2026",
     slug: "fashion-expo-2026",
     parentId: null,
     description: "Annual fashion exhibition",
