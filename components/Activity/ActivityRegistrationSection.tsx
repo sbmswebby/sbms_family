@@ -27,8 +27,8 @@ export const ActivityRegistrationSection: React.FC<
               className="flex justify-between items-center p-2 border rounded-md hover:bg-gray-50 cursor-pointer"
               // TODO: onClick could open a modal with more details
             >
-              <span className="font-medium">{reg.fullName}</span>
-              <span className="text-sm text-gray-500">{reg.phoneNumber}</span>
+              <span className="font-medium">{reg.person.name}</span>
+              <span className="text-sm text-gray-500">{reg.person.phone}</span>
             </li>
           ))}
         </ul>
