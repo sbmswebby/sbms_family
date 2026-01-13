@@ -1,35 +1,46 @@
 import { ActivityPageBySlug } from "@/components/Activity/ActivityPageBySlug"
-import { DEMO_ACTIVITIES, DEMO_REGISTRATIONS } from "@/components/Activity/demoActivities"
-import { Activity } from "@/types/types"
+import { Activity, Registration } from "@/types/types"
 
 /**
  * Activity detail page (dynamic route)
- * Each slug represents a NEW page and NEW navigation context
+ * Corrected prop name from 'registrations' to 'allRegistrations'
  */
-export default async function ActivityPage({
+ async function ActivityPage({
   params,
 }: {
   params: Promise<{ slug: string }>
 }) {
-  /**
-   * ✅ IMPORTANT
-   * params is async in App Router
-   */
+  // 1. Await params as required by Next.js App Router
   const { slug } = await params
 
-  console.log("URL slug:", slug)
-
-  const activities: Activity[] = await getActivitiesFromDB()
+  // 2. Fetch both activities and registrations
+  const [activities, registrations] = await Promise.all([
+    getActivitiesFromDB(),
+    getRegistrationsFromDB(),
+  ])
 
   return (
     <ActivityPageBySlug
-          activities={activities}
-          slug={slug} registrations={DEMO_REGISTRATIONS}     />
+      activities={activities}
+      allRegistrations={registrations} // Updated this line
+      slug={slug}
+    />
   )
 }
 
-
+/**
+ * Data Fetching Helpers
+ */
 async function getActivitiesFromDB(): Promise<Activity[]> {
   await new Promise((resolve) => setTimeout(resolve, 100))
-  return DEMO_ACTIVITIES
+  // return db.activity.findMany() 
+  return [] 
 }
+
+async function getRegistrationsFromDB(): Promise<Registration[]> {
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  // return db.registration.findMany()
+  return []
+}
+
+export default ActivityPage;

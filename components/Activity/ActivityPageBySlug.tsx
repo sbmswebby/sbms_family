@@ -8,19 +8,28 @@ import { RegistrationsModal } from "@/components/Activity/RegistrationsModal"
 
 interface ActivityPageBySlugProps {
   activities: Activity[]
-  registrations: Registration[] 
+  allRegistrations: Registration[]
   slug: string
 }
 
 export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
   activities,
-  registrations,
+  allRegistrations,
   slug,
 }) => {
   const router = useRouter()
   const [isModalOpen, setIsModalOpen] = useState(true)
 
   const currentActivity = activities.find((a) => a.slug === slug) ?? null
+
+    // Filter only top-level activities for the main display grid
+  const rootActivities = activities.filter(
+    (activity) => activity.parentId === null
+  )
+
+  const handleClick = (slug: string): void => {
+    router.push(`/activities/${slug}`)
+  }
 
   if (!currentActivity) {
     return <p className="text-center py-12">Activity not found.</p>
@@ -45,13 +54,13 @@ export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
 
       {/* 2. The Grid is now always visible with relevant context */}
       {activitiesToShow.length > 0 && (
-        <ActivityGrid
-          activities={activitiesToShow}
-          onActivityClick={(childSlug) => {
-            setIsModalOpen(true); // Ensure modal opens if clicking a sibling
-            router.push(`/activities/${childSlug}`);
-          }}
-        />
+      <ActivityGrid
+        title="Activities"
+        activities={rootActivities}      // The filtered list to show as cards
+        allActivities={activities}       // The full master list for counting sub-activity signups
+        allRegistrations={allRegistrations} // The live registration data
+        onActivityClick={handleClick}
+      />
       )}
 
       {/* 3. The Modal overlays the grid without hiding it */}
@@ -59,7 +68,7 @@ export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
         <RegistrationsModal
           activity={currentActivity}
           allActivities={activities}
-          allRegistrations={registrations}
+          allRegistrations={allRegistrations}
           onClose={() => {
             setIsModalOpen(false)
             // Go back to the parent level visually

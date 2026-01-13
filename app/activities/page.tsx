@@ -1,30 +1,48 @@
-import { ActivitiesRootPageComponent } from "@/components/Activity/ActivityPageComponent"
-import { Activity } from "@/types/types"
-import { DEMO_ACTIVITIES } from "@/components/Activity/demoActivities"
+import React, { useMemo } from "react"
+import { Activity, Registration } from "@/types/types"
+import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 
-/**
- * Server-side page
- * Responsible ONLY for data fetching
- * No hierarchy or UI logic here
- */
-export default async function ActivitiesPage({
-  params,
-}: {
-  params: { slug?: string }
-}) {
-  const activities: Activity[] = await getActivitiesFromDB()
+interface ActivitiesRootPageComponentProps {
+  activities: Activity[]
+  allRegistrations: Registration[] // Add this line
+}
+
+const  ActivitiesRootPageComponent: React.FC<ActivitiesRootPageComponentProps> = ({
+  activities,
+  allRegistrations,
+}) => {
+  /**
+   * We still treat the 'activities' prop as the "master list" 
+   * for the grid's internal calculations.
+   */
+  const rootActivities = useMemo(() => {
+    return activities.filter((a) => a.parentId === null)
+  }, [activities])
 
   return (
-    <ActivitiesRootPageComponent
-      activities={activities}
-    />
+    <main className="min-h-screen bg-black py-10">
+      <div className="mx-auto max-w-7xl px-4">
+        <header className="mb-10 px-10">
+          <h1 className="text-4xl font-extrabold tracking-tight text-white">
+            Activities
+          </h1>
+          <p className="mt-2 text-gray-400">
+            Manage events, sub-activities, and track registrations.
+          </p>
+        </header>
+
+        <ActivityGrid
+          title="Root Events"
+          activities={rootActivities} // The filtered list to display
+          allActivities={activities}    // The master list for recursive counting
+          allRegistrations={allRegistrations} // The master registration list
+          onActivityClick={(slug) => {
+            console.log("Navigate to:", slug)
+          }}
+        />
+      </div>
+    </main>
   )
 }
 
-/**
- * Temporary mock DB function
- */
-async function getActivitiesFromDB(): Promise<Activity[]> {
-  await new Promise((resolve) => setTimeout(resolve, 100))
-  return DEMO_ACTIVITIES
-}
+export default ActivitiesRootPageComponent;
