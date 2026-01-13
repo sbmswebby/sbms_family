@@ -31,6 +31,14 @@ export const ActivitiesRootPageComponent: React.FC<
     router.push("/")
   }
 
+  const handleSignUpClick = () => {
+    router.push("/signup")
+  }
+
+  const handleSignInClick = () => {
+    router.push("/signin")
+  }
+
   return (
     <section className="relative min-h-screen overflow-hidden bg-black">
       {/* Background image */}
@@ -48,11 +56,11 @@ export const ActivitiesRootPageComponent: React.FC<
       {/* Content */}
       <div className="relative mx-auto max-w-7xl px-4 py-20">
         {/* Header */}
-        <div className="mb-14 text-center">
+        <div className="mb-14 flex flex-col items-center justify-center gap-6 text-center sm:flex-row sm:justify-between sm:text-left">
           <button
             type="button"
             onClick={handleLogoClick}
-            className="group mx-auto mb-6 flex items-center justify-center gap-4 focus:outline-none"
+            className="group flex items-center gap-4 focus:outline-none"
           >
             {/* Logo */}
             <div className="relative h-16 w-16 transition-transform duration-300 group-hover:scale-110">
@@ -71,13 +79,29 @@ export const ActivitiesRootPageComponent: React.FC<
             </h1>
           </button>
 
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-orange-200 drop-shadow-md">
-            Fashion, beauty & makeup experiences crafted to inspire elegance
-          </p>
+          {/* Sign In / Sign Up buttons */}
+          <div className="flex gap-4">
+            <button
+              onClick={handleSignInClick}
+              className="rounded-full bg-orange-600 px-6 py-2 text-white transition-colors hover:bg-orange-500"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={handleSignUpClick}
+              className="rounded-full border-2 border-orange-600 px-6 py-2 text-orange-600 transition-colors hover:bg-orange-600 hover:text-white"
+            >
+              Sign Up
+            </button>
+          </div>
         </div>
 
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-orange-200 drop-shadow-md text-center sm:text-left">
+          Fashion, beauty & makeup experiences crafted to inspire elegance
+        </p>
+
         {/* Glass container */}
-        <div className="rounded-3xl bg-white/95 p-8 shadow-[0_30px_80px_rgba(0,0,0,0.6)] backdrop-blur-lg sm:p-12">
+        <div className="mt-10 rounded-3xl bg-white/95 p-8 shadow-[0_30px_80px_rgba(0,0,0,0.6)] backdrop-blur-lg sm:p-12">
           {rootActivities.length === 0 ? (
             <div className="flex h-40 items-center justify-center rounded-xl border-2 border-dashed border-orange-300">
               <p className="font-medium text-orange-600">
