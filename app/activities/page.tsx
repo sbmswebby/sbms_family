@@ -1,29 +1,24 @@
-"use client" // This must be at the very top
+"use client"
 
 import React, { useMemo, useEffect, useState } from "react"
 import { VW_ActivityStats, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 import { useRouter } from "next/navigation"
 import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/ActivitiesApi"
-import { buildActivityStats } from "@/components/Activity/ActivityUtils"
 
 export default function ActivitiesPage() {
   const router = useRouter()
   
-  // 1. State for data (since it's a client component)
+  // 1. State for data
   const [activities, setActivities] = useState<VW_ActivityStats[]>([])
   const [allRegistrations, setAllRegistrations] = useState<Registration[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
-    const activityStats = useMemo(
-      () => buildActivityStats(activities, allRegistrations),
-      [activities, allRegistrations]
-    )
 
   // 2. Fetch data on mount
   useEffect(() => {
     async function loadData() {
       try {
+        // Fetching the optimized data directly from the DB views
         const [actData, regData] = await Promise.all([
           fetchAllActivities(),
           fetchAllRegistrations()
@@ -39,7 +34,8 @@ export default function ActivitiesPage() {
     loadData()
   }, [])
 
-  // 3. Memoized filtering (Now 'activities' is defined in state)
+  // 3. Memoized filtering
+  // Root activities are those where parentId is null
   const rootActivities = useMemo(() => {
     return activities.filter((a) => a.parentId === null)
   }, [activities])
@@ -48,16 +44,27 @@ export default function ActivitiesPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="text-gray-500 text-sm animate-pulse">Loading dashboard...</p>
+        </div>
       </div>
     )
   }
 
-  // 5. Empty State
+  // 5. Empty State (Handled by ActivityGrid internally as well, but this is a global fallback)
   if (activities.length === 0) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <p className="text-gray-400">No activities found.</p>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center space-y-4">
+        <div className="bg-gray-900 p-6 rounded-full">
+           <p className="text-gray-400 text-lg">No activities found.</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="text-blue-500 hover:text-blue-400 text-sm font-medium"
+        >
+          Click to refresh
+        </button>
       </div>
     )
   }
@@ -65,19 +72,22 @@ export default function ActivitiesPage() {
   return (
     <main className="min-h-screen bg-black py-10">
       <div className="mx-auto max-w-7xl px-4">
-        <header className="mb-10 px-10">
+        <header className="mb-10 px-10 space-y-2">
           <h1 className="text-4xl font-extrabold tracking-tight text-white">
             Activities
           </h1>
-          <p className="mt-2 text-gray-400">
-            Manage events, sub-activities, and track registrations.
+          <p className="text-gray-400 max-w-2xl">
+            Manage your event hierarchy, track registration counts, and monitor revenue at a glance.
           </p>
         </header>
 
+        {/* Note: We no longer pass 'activityStats'. 
+          Each 'activity' object inside 'rootActivities' already contains 
+          its own registrationCounts and revenue data.
+        */}
         <ActivityGrid
-          title="Root Events"
+          title="Top Level Events"
           activities={rootActivities}
-          activityStats={activityStats} 
           allActivities={activities} 
           allRegistrations={allRegistrations} 
           onActivityClick={(slug) => {

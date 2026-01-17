@@ -5,15 +5,12 @@ import { useRouter } from "next/navigation"
 import { VW_ActivityStats, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 import { RegistrationsModal } from "@/components/Activity/RegistrationsModal"
-import { buildActivityStats } from "./ActivityUtils"
 
 interface ActivityPageBySlugProps {
   activities: VW_ActivityStats[]
   allRegistrations: Registration[]
   slug: string
 }
-
-
 
 export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
   activities,
@@ -23,25 +20,17 @@ export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
   const router = useRouter()
   const [userClosedModal, setUserClosedModal] = useState(false)
 
+  // 1. Identify the current activity
   const currentActivity = useMemo(() => {
     return activities.find(
       activity => activity.slug === slug || activity.id === slug
     ) ?? null
   }, [activities, slug])
 
-  const activityStats = useMemo(
-    () => buildActivityStats(activities, allRegistrations),
-    [activities, allRegistrations]
-  )
-
-  /**
-   * Filter the specific registrations for the current activity (and descendants)
-   * This is passed to the Modal to avoid recursion inside the Modal.
-   */
+  // 2. Compute registrations specifically for this activity (including descendants)
   const currentRegistrations = useMemo(() => {
     if (!currentActivity) return []
     
-    // Helper to find descendants specifically for the current activity
     const getDescendantIds = (parentId: string): string[] => {
       return activities
         .filter(a => a.parentId === parentId)
@@ -52,6 +41,7 @@ export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
     return allRegistrations.filter(reg => targetIds.includes(reg.activityId))
   }, [currentActivity, activities, allRegistrations])
 
+  // 3. Determine what to show in the grid (Children or Siblings)
   const activitiesToShow = useMemo(() => {
     if (!currentActivity) return []
     const children = activities.filter(a => a.parentId === currentActivity.id)
@@ -63,35 +53,50 @@ export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
 
   if (!currentActivity) return null
 
-  const isLeaf = activityStats[currentActivity.id]?.childCount === 0
+  // A Leaf has no children based on the current data set
+  const isLeaf = !currentActivity.hasChildren
 
   return (
-    <section className="relative space-y-6 p-4 md:p-10">
-      <header>
-        <h1 className="text-3xl font-bold text-white">
-          {currentActivity.name}
-        </h1>
-        <p className="text-gray-400">
-          {isLeaf ? "Event Details & Registrations" : "Select a sub-activity"}
-        </p>
+    <section className="relative space-y-8 p-4 md:p-10">
+      <header className="max-w-4xl space-y-4">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
+            {currentActivity.name}
+          </h1>
+          <p className="text-blue-400 font-medium text-sm uppercase tracking-wider">
+            {isLeaf ? "Event Details & Registrations" : "Activity Category"}
+          </p>
+        </div>
+
+        {/* 4. Description displayed here */}
+        {currentActivity.description && (
+          <div className="bg-gray-900/50 border-l-4 border-blue-600 p-6 rounded-r-2xl">
+            <p className="text-gray-300 leading-relaxed text-lg italic">
+              {currentActivity.description}
+            </p>
+          </div>
+        )}
       </header>
 
-      <ActivityGrid
-        activities={activitiesToShow}
-        activityStats={activityStats}
-        // Required by updated Grid to handle its internal Modal logic
-        allActivities={activities}
-        allRegistrations={allRegistrations}
-        onActivityClick={(newSlug) => {
-          setUserClosedModal(false)
-          router.push(`/activities/${newSlug}`)
-        }}
-      />
+      <div className="pt-4 border-t border-gray-800">
+        <h2 className="text-xl font-semibold text-gray-200 mb-6 px-10">
+          {currentActivity.hasChildren ? "Sub-Activities" : "Related Activities"}
+        </h2>
+        <ActivityGrid
+          activities={activitiesToShow}
+          allActivities={activities}
+          allRegistrations={allRegistrations}
+          onActivityClick={(newSlug) => {
+            setUserClosedModal(false)
+            router.push(`/activities/${newSlug}`)
+          }}
+        />
+      </div>
 
       {isLeaf && !userClosedModal && (
         <RegistrationsModal
           activity={currentActivity}
-          registrations={currentRegistrations} // Passing computed array instead of global arrays
+          registrations={currentRegistrations}
           onClose={() => {
             setUserClosedModal(true)
             router.back()

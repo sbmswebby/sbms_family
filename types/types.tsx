@@ -1,45 +1,43 @@
-//types.tsx
-
 /**
  * UI-safe Activity model
- * Derived from vw_activity_stats + activities
+ * Derived from vw_activity_stats
  */
 export interface VW_ActivityStats {
   id: string
   name: string
   slug: string
-
+  description: string | null
+  
   parentId: string | null
   hasChildren: boolean
+  activityType: string // From a.type
 
   startTime: Date | null
   endTime: Date | null
-  status: "draft" | "live" | "completed" | "cancelled"
+  // Aligned with DB check: status = any (array['draft', 'published', 'archived'])
+  // Note: Your view uses a.status, which your table check defines as follows:
+  status: "draft" | "published" | "archived" | "live" | "completed" | "cancelled"
 
-  registrationCounts?: {
+  registrationCounts: {
     total: number
     registered: number
     completed: number
     cancelled: number
+    noShow: number
+  }
+  
+  revenue?: {
+    total: number
+    paidRegistrations: number
   }
 }
 
 /**
  * Registration shown in UI
- * Derived from vw_user_activity_details
- */
-/**
- * Registration shown in UI
- * Derived from vw_user_activity_details
  */
 export interface Registration {
   id: string
-
-  /**
-   * Leaf activity this registration belongs to
-   */
   activityId: string
-
   registrationNumber: string
 
   person: {
@@ -49,86 +47,19 @@ export interface Registration {
   }
 
   status: "registered" | "completed" | "cancelled" | "no_show"
-
   registeredAt: Date
 }
 
+export type RegistrationsByActivity = Record<string, Registration[]>
 
-/**
- * UI-safe Registration model
- * Derived from vw_user_activity_details
- */
-export interface Registration {
-  id: string
-
-  /**
-   * Human-readable registration number
-   * Example: "FE26-0123"
-   */
-  registrationNumber: string
-
-  /**
-   * Activity this registration belongs to
-   */
-  activityId: string
-
-  /**
-   * Minimal person info for operators
-   */
-  person: {
-    name: string
-    phone: string
-    photoUrl?: string
-  }
-
-  /**
-   * Registration lifecycle state
-   */
-  status: "registered" | "completed" | "cancelled" | "no_show"
-
-  /**
-   * When the user was registered
-   */
-  registeredAt: Date
-}
-
-/**
- * Registrations grouped by activity
- * Key = activityId
- */
-export type RegistrationsByActivity = Record<
-  string,
-  Registration[]
->
-
-/**
- * Groups registrations by activityId
- *
- * This function is:
- * - Pure
- * - Deterministic
- * - UI-only
- *
- * Parents aggregate at render time, not here
- */
 export const groupRegistrationsByActivity = (
-  registrations: Registration[] = [] // Default to empty array
+  registrations: Registration[] = []
 ): RegistrationsByActivity => {
-  // Guard clause for extra safety
   if (!registrations) return {};
-
-  return registrations.reduce<RegistrationsByActivity>(
-    (accumulator, registration) => {
-      const activityId = registration.activityId
-
-      if (!accumulator[activityId]) {
-        accumulator[activityId] = []
-      }
-
-      accumulator[activityId].push(registration)
-
-      return accumulator
-    },
-    {}
-  )
+  return registrations.reduce<RegistrationsByActivity>((acc, reg) => {
+    const activityId = reg.activityId
+    if (!acc[activityId]) acc[activityId] = []
+    acc[activityId].push(reg)
+    return acc
+  }, {})
 }
