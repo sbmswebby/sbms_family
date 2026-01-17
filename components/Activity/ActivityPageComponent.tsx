@@ -45,7 +45,6 @@ export const ActivitiesRootPageComponent: React.FC<
           to resolve hierarchies and counts for the Modal.
         */
         allActivities={activities}
-        allRegistrations={allRegistrations}
         onActivityClick={handleClick}
       />
     </div>

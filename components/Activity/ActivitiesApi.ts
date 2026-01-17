@@ -12,24 +12,29 @@ const slugify = (text: string): string => {
 
 /**
  * Fetches all activities directly from the stats view.
+ * Optimized to reduce iterations and create immutable data.
  */
 export const fetchAllActivities = async (): Promise<VW_ActivityStats[]> => {
-  // Querying the view directly is more efficient
   const { data, error } = await supabase
     .from('vw_activity_stats')
-    .select('*');
+    .select('*')
+    .order('start_time', { ascending: false }); // Sort at DB level
 
   if (error || !data) {
     console.error("Error fetching activities from view:", error);
     return [];
   }
 
-  // Determine children based on the parent_activity_id presence in the set
-  const checkHasChildren = (id: string) => 
-    data.some(item => item.parent_activity_id === id);
+  // Build hasChildren map in single pass
+  const childrenMap = new Map<string, boolean>();
+  for (const item of data) {
+    if (item.parent_activity_id) {
+      childrenMap.set(item.parent_activity_id, true);
+    }
+  }
 
+  // Map once with O(1) lookup
   return data.map((item) => {
-    // Use organization_code + slug if available, otherwise name
     const generatedSlug = item.organization_code 
       ? `${item.organization_code}-${slugify(item.activity_name)}` 
       : slugify(item.activity_name);
@@ -40,8 +45,9 @@ export const fetchAllActivities = async (): Promise<VW_ActivityStats[]> => {
       slug: generatedSlug,
       description: item.description,
       parentId: item.parent_activity_id,
-      hasChildren: checkHasChildren(item.activity_id),
+      hasChildren: childrenMap.has(item.activity_id),
       activityType: item.activity_type,
+      organizationId: item.organization_id, 
       startTime: item.start_time ? new Date(item.start_time) : null,
       endTime: item.end_time ? new Date(item.end_time) : null,
       status: item.status as VW_ActivityStats['status'],
@@ -82,5 +88,55 @@ export const fetchAllRegistrations = async (): Promise<Registration[]> => {
     },
     status: reg.status as Registration['status'],
     registeredAt: new Date(reg.registration_time),
+  }));
+};
+
+export async function ensureFreeRegistrationLeaf(parentActivity: VW_ActivityStats): Promise<string> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('activities')
+    .select('id')
+    .eq('parent_activity_id', parentActivity.id)
+    .eq('name', 'free_registrations')
+    .maybeSingle();
+
+  if (existing) return existing.id;
+
+  const { data, error } = await supabase
+    .from('activities')
+    .insert({
+      name: 'free_registrations',
+      parent_activity_id: parentActivity.id,
+      organization_id: parentActivity.organizationId,
+      status: 'published',
+      type: 'session',
+      description: 'System-generated bucket for direct registrations'
+    })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return data.id;
+}
+
+export const fetchRegistrationsForActivity = async (activityId: string): Promise<Registration[]> => {
+  const { data, error } = await supabase
+    .from('vw_user_activity_details')
+    .select('*')
+    .eq('activity_id', activityId)
+    .order('registration_time', { ascending: false });
+
+  if (error) throw error;
+  
+  return data.map(reg => ({
+    id: reg.id,
+    activityId: reg.activity_id,
+    registrationNumber: reg.display_registration_number,
+    person: {
+      name: reg.user_name,
+      phone: reg.user_phone,
+      photoUrl: reg.user_photo
+    },
+    status: reg.status,
+    registeredAt: new Date(reg.registration_time)
   }));
 };

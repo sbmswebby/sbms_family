@@ -11,6 +11,8 @@ export interface VW_ActivityStats {
   parentId: string | null
   hasChildren: boolean
   activityType: string // From a.type
+  
+  organizationId:string
 
   startTime: Date | null
   endTime: Date | null
@@ -62,4 +64,17 @@ export const groupRegistrationsByActivity = (
     acc[activityId].push(reg)
     return acc
   }, {})
+}
+
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  whatsapp_number: string;
+  supabase_auth_id?: string | null;
+  profile_photo_url?: string | null;
+  profession_id?: string | null;
+  state_id?: string | null;
+  city_id?: string | null;
+  instagram_handle?: string | null;
+  created_at: string;
 }

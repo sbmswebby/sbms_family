@@ -1,46 +1,48 @@
 "use client"
 
-import React, { useMemo, useEffect, useState } from "react"
-import { VW_ActivityStats, Registration } from "@/types/types"
+import React, { useEffect, useState, useCallback } from "react"
+import { VW_ActivityStats } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 import { useRouter } from "next/navigation"
-import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/ActivitiesApi"
+import { fetchAllActivities } from "@/components/Activity/ActivitiesApi"
 
 export default function ActivitiesPage() {
   const router = useRouter()
   
-  // 1. State for data
   const [activities, setActivities] = useState<VW_ActivityStats[]>([])
-  const [allRegistrations, setAllRegistrations] = useState<Registration[]>([])
+  const [rootActivities, setRootActivities] = useState<VW_ActivityStats[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // 2. Fetch data on mount
+  // Fetch and process data on mount - no try-finally for React Compiler
   useEffect(() => {
+    let mounted = true;
+    
     async function loadData() {
-      try {
-        // Fetching the optimized data directly from the DB views
-        const [actData, regData] = await Promise.all([
-          fetchAllActivities(),
-          fetchAllRegistrations()
-        ])
-        setActivities(actData ?? [])
-        setAllRegistrations(regData ?? [])
-      } catch (error) {
-        console.error("Failed to load activities:", error)
-      } finally {
-        setIsLoading(false)
-      }
+      const actData = await fetchAllActivities().catch((error) => {
+        console.error("Failed to load activities:", error);
+        return [];
+      });
+      
+      if (!mounted) return;
+      
+      setActivities(actData);
+      const roots = actData.filter((a) => a.parentId === null);
+      setRootActivities(roots);
+      setIsLoading(false);
     }
-    loadData()
-  }, [])
+    
+    loadData();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  // 3. Memoized filtering
-  // Root activities are those where parentId is null
-  const rootActivities = useMemo(() => {
-    return activities.filter((a) => a.parentId === null)
-  }, [activities])
+  // Stable callback reference
+  const handleActivityClick = useCallback((slug: string) => {
+    router.push(`/activities/${slug}`);
+  }, [router]);
 
-  // 4. Loading State
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -52,7 +54,6 @@ export default function ActivitiesPage() {
     )
   }
 
-  // 5. Empty State (Handled by ActivityGrid internally as well, but this is a global fallback)
   if (activities.length === 0) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center space-y-4">
@@ -81,18 +82,11 @@ export default function ActivitiesPage() {
           </p>
         </header>
 
-        {/* Note: We no longer pass 'activityStats'. 
-          Each 'activity' object inside 'rootActivities' already contains 
-          its own registrationCounts and revenue data.
-        */}
         <ActivityGrid
           title="Top Level Events"
           activities={rootActivities}
           allActivities={activities} 
-          allRegistrations={allRegistrations} 
-          onActivityClick={(slug) => {
-            router.push(`/activities/${slug}`)
-          }}
+          onActivityClick={handleActivityClick}
         />
       </div>
     </main>
