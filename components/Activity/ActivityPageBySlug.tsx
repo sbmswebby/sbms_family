@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Activity, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
@@ -12,69 +12,131 @@ interface ActivityPageBySlugProps {
   slug: string
 }
 
+/**
+ * Centralized activity statistics builder
+ */
+const buildActivityStats = (
+  activities: Activity[],
+  registrations: Registration[]
+): Record<string, { totalRegistrations: number; childCount: number }> => {
+  const childrenMap: Record<string, string[]> = {}
+
+  for (const activity of activities) {
+    if (activity.parentId) {
+      if (!childrenMap[activity.parentId]) childrenMap[activity.parentId] = []
+      childrenMap[activity.parentId].push(activity.id)
+    }
+  }
+
+  const getDescendants = (id: string): string[] => {
+    const directChildren = childrenMap[id] ?? []
+    return directChildren.flatMap(childId => [
+      childId,
+      ...getDescendants(childId),
+    ])
+  }
+
+  const stats: Record<string, { totalRegistrations: number; childCount: number }> = {}
+
+  for (const activity of activities) {
+    const descendantIds = getDescendants(activity.id)
+    const relevantIds = [activity.id, ...descendantIds]
+
+    stats[activity.id] = {
+      childCount: descendantIds.length,
+      totalRegistrations: registrations.filter(reg =>
+        relevantIds.includes(reg.activityId)
+      ).length,
+    }
+  }
+
+  return stats
+}
+
 export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
   activities,
   allRegistrations,
   slug,
 }) => {
   const router = useRouter()
-  const [isModalOpen, setIsModalOpen] = useState(true)
+  const [userClosedModal, setUserClosedModal] = useState(false)
 
-  const currentActivity = activities.find((a) => a.slug === slug) ?? null
+  const currentActivity = useMemo(() => {
+    return activities.find(
+      activity => activity.slug === slug || activity.id === slug
+    ) ?? null
+  }, [activities, slug])
 
-    // Filter only top-level activities for the main display grid
-  const rootActivities = activities.filter(
-    (activity) => activity.parentId === null
+  const activityStats = useMemo(
+    () => buildActivityStats(activities, allRegistrations),
+    [activities, allRegistrations]
   )
 
-  const handleClick = (slug: string): void => {
-    router.push(`/activities/${slug}`)
-  }
+  /**
+   * Filter the specific registrations for the current activity (and descendants)
+   * This is passed to the Modal to avoid recursion inside the Modal.
+   */
+  const currentRegistrations = useMemo(() => {
+    if (!currentActivity) return []
+    
+    // Helper to find descendants specifically for the current activity
+    const getDescendantIds = (parentId: string): string[] => {
+      return activities
+        .filter(a => a.parentId === parentId)
+        .flatMap(child => [child.id, ...getDescendantIds(child.id)])
+    }
 
-  if (!currentActivity) {
-    return <p className="text-center py-12">Activity not found.</p>
-  }
+    const targetIds = [currentActivity.id, ...getDescendantIds(currentActivity.id)]
+    return allRegistrations.filter(reg => targetIds.includes(reg.activityId))
+  }, [currentActivity, activities, allRegistrations])
 
-  // 1. Logic Change: If this is a leaf, find its siblings to keep the grid full.
-  // If it's a parent, find its children.
-  const isLeaf = !currentActivity.hasChildren
-  
-  const activitiesToShow = isLeaf 
-    ? activities.filter(a => a.parentId === currentActivity.parentId) // Show siblings
-    : activities.filter(a => a.parentId === currentActivity.id)       // Show children
+  const activitiesToShow = useMemo(() => {
+    if (!currentActivity) return []
+    const children = activities.filter(a => a.parentId === currentActivity.id)
+    
+    return children.length > 0 
+      ? children 
+      : activities.filter(a => a.parentId === currentActivity.parentId && a.id !== currentActivity.id)
+  }, [activities, currentActivity])
+
+  if (!currentActivity) return null
+
+  const isLeaf = activityStats[currentActivity.id]?.childCount === 0
 
   return (
-    <section className="relative space-y-6">
-      <header className="px-4">
-        <h1 className="text-2xl font-bold tracking-tight">{currentActivity.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {isLeaf ? "Viewing participants" : "Select a sub-activity"}
+    <section className="relative space-y-6 p-4 md:p-10">
+      <header>
+        <h1 className="text-3xl font-bold text-white">
+          {currentActivity.name}
+        </h1>
+        <p className="text-gray-400">
+          {isLeaf ? "Event Details & Registrations" : "Select a sub-activity"}
         </p>
       </header>
 
-      {/* 2. The Grid is now always visible with relevant context */}
-      {activitiesToShow.length > 0 && (
       <ActivityGrid
-        title="Activities"
-        activities={rootActivities}      // The filtered list to show as cards
-        allActivities={activities}       // The full master list for counting sub-activity signups
-        allRegistrations={allRegistrations} // The live registration data
-        onActivityClick={handleClick}
+        activities={activitiesToShow}
+        activityStats={activityStats}
+        // Required by updated Grid to handle its internal Modal logic
+        allActivities={activities}
+        allRegistrations={allRegistrations}
+        onActivityClick={(newSlug) => {
+          setUserClosedModal(false)
+          router.push(`/activities/${newSlug}`)
+        }}
       />
-      )}
 
-      {/* 3. The Modal overlays the grid without hiding it */}
-      {isLeaf && isModalOpen && (
+      {isLeaf && !userClosedModal && (
         <RegistrationsModal
           activity={currentActivity}
-          allActivities={activities}
-          allRegistrations={allRegistrations}
+          registrations={currentRegistrations} // Passing computed array instead of global arrays
           onClose={() => {
-            setIsModalOpen(false)
-            // Go back to the parent level visually
+            setUserClosedModal(true)
             router.back()
           }}
-          onAddRegistration={(id) => console.log("Add for:", id)}
+          onAddRegistration={(id: string) => {
+            console.log("Registering for activity:", id)
+          }}
         />
       )}
     </section>

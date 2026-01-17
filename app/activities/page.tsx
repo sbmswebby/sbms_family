@@ -1,23 +1,60 @@
-import React, { useMemo } from "react"
+"use client" // This must be at the very top
+
+import React, { useMemo, useEffect, useState } from "react"
 import { Activity, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
+import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/demoActivities"
+import { useRouter } from "next/navigation"
 
-interface ActivitiesRootPageComponentProps {
-  activities: Activity[]
-  allRegistrations: Registration[] // Add this line
-}
+export default function ActivitiesPage() {
+  const router = useRouter()
+  
+  // 1. State for data (since it's a client component)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [allRegistrations, setAllRegistrations] = useState<Registration[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-const  ActivitiesRootPageComponent: React.FC<ActivitiesRootPageComponentProps> = ({
-  activities,
-  allRegistrations,
-}) => {
-  /**
-   * We still treat the 'activities' prop as the "master list" 
-   * for the grid's internal calculations.
-   */
+  // 2. Fetch data on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [actData, regData] = await Promise.all([
+          fetchAllActivities(),
+          fetchAllRegistrations()
+        ])
+        setActivities(actData ?? [])
+        setAllRegistrations(regData ?? [])
+      } catch (error) {
+        console.error("Failed to load activities:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  // 3. Memoized filtering (Now 'activities' is defined in state)
   const rootActivities = useMemo(() => {
     return activities.filter((a) => a.parentId === null)
   }, [activities])
+
+  // 4. Loading State
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white"></div>
+      </div>
+    )
+  }
+
+  // 5. Empty State
+  if (activities.length === 0) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <p className="text-gray-400">No activities found.</p>
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-black py-10">
@@ -33,16 +70,14 @@ const  ActivitiesRootPageComponent: React.FC<ActivitiesRootPageComponentProps> =
 
         <ActivityGrid
           title="Root Events"
-          activities={rootActivities} // The filtered list to display
-          allActivities={activities}    // The master list for recursive counting
-          allRegistrations={allRegistrations} // The master registration list
+          activities={rootActivities} 
+          allActivities={activities}    
+          allRegistrations={allRegistrations} 
           onActivityClick={(slug) => {
-            console.log("Navigate to:", slug)
+            router.push(`/activities/${slug}`)
           }}
         />
       </div>
     </main>
   )
 }
-
-export default ActivitiesRootPageComponent;

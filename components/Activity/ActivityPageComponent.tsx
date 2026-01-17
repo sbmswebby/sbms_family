@@ -1,13 +1,62 @@
 "use client"
 
-import React from "react"
+import React, { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Activity, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 
+/**
+ * Props for the root activities page
+ */
 interface ActivitiesRootPageComponentProps {
   activities: Activity[]
-  allRegistrations: Registration[] // Added to match the server fetch
+  allRegistrations: Registration[]
+}
+
+/**
+ * Builds aggregated stats for each activity.
+ * Computed once at the page level.
+ */
+const buildActivityStats = (
+  activities: Activity[],
+  registrations: Registration[]
+): Record<string, { totalRegistrations: number; childCount: number }> => {
+  const childrenMap: Record<string, string[]> = {}
+
+  // Build parent → children lookup
+  for (const activity of activities) {
+    if (activity.parentId) {
+      if (!childrenMap[activity.parentId]) {
+        childrenMap[activity.parentId] = []
+      }
+      childrenMap[activity.parentId].push(activity.id)
+    }
+  }
+
+  // Recursive descendant resolver
+  const getDescendants = (id: string): string[] => {
+    const directChildren = childrenMap[id] ?? []
+    return directChildren.flatMap(childId => [
+      childId,
+      ...getDescendants(childId),
+    ])
+  }
+
+  const stats: Record<string, { totalRegistrations: number; childCount: number }> = {}
+
+  for (const activity of activities) {
+    const descendantIds = getDescendants(activity.id)
+    const relevantIds = [activity.id, ...descendantIds]
+
+    stats[activity.id] = {
+      childCount: descendantIds.length,
+      totalRegistrations: registrations.filter(reg =>
+        relevantIds.includes(reg.activityId)
+      ).length,
+    }
+  }
+
+  return stats
 }
 
 export const ActivitiesRootPageComponent: React.FC<
@@ -15,22 +64,37 @@ export const ActivitiesRootPageComponent: React.FC<
 > = ({ activities, allRegistrations }) => {
   const router = useRouter()
 
-  // Filter only top-level activities for the main display grid
-  const rootActivities = activities.filter(
-    (activity) => activity.parentId === null
+  /**
+   * Only top-level activities are shown in the initial grid view
+   */
+  const rootActivities = useMemo(
+    () => activities.filter(activity => activity.parentId === null),
+    [activities]
   )
 
-  const handleClick = (slug: string): void => {
-    router.push(`/activities/${slug}`)
+  /**
+   * Compute aggregated activity statistics
+   */
+  const activityStats = useMemo(
+    () => buildActivityStats(activities, allRegistrations),
+    [activities, allRegistrations]
+  )
+
+  const handleClick = (slugOrId: string): void => {
+    router.push(`/activities/${slugOrId}`)
   }
 
   return (
     <div className="min-h-screen bg-black">
       <ActivityGrid
         title="Activities"
-        activities={rootActivities}      // The filtered list to show as cards
-        allActivities={activities}       // The full master list for counting sub-activity signups
-        allRegistrations={allRegistrations} // The live registration data
+        activities={rootActivities}
+        activityStats={activityStats}
+        /* We pass these global arrays so the Grid can filter 
+           specific registration lists for the Modal 
+        */
+        allActivities={activities}
+        allRegistrations={allRegistrations}
         onActivityClick={handleClick}
       />
     </div>

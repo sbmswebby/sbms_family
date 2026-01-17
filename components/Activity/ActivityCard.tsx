@@ -1,20 +1,19 @@
 "use client"
 
-import React, { useMemo } from "react"
-import { Activity, Registration } from "@/types/types"
+import React from "react"
+import { Activity } from "@/types/types"
 
 interface ActivityCardProps {
   activity: Activity
-  onClick: (slug: string) => void
+  onClick: (slugOrId: string) => void
   onRegistrationsClick?: (activityId: string) => void
   /**
-   * Required: All activities from Supabase to handle recursive counting
+   * New: Pre-computed stats passed from ActivityGrid
    */
-  allActivities: Activity[]
-  /**
-   * Required: All registrations from Supabase
-   */
-  allRegistrations: Registration[]
+  stats?: {
+    totalRegistrations: number
+    childCount: number
+  }
 }
 
 /**
@@ -42,42 +41,25 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   activity,
   onClick,
   onRegistrationsClick,
-  allActivities,
-  allRegistrations,
+  stats,
 }) => {
   const hasTiming = activity.startTime !== null && activity.endTime !== null
   const isLeafActivity = !activity.hasChildren
 
-  /**
-   * RECURSIVE AGGREGATION
-   * Calculates total registrations for this node and all its children.
-   * This ensures Parent activities show the sum of all nested activity signups.
-   */
-  const totalRegistrations = useMemo(() => {
-    // Return 0 if data isn't loaded yet
-    if (!allActivities.length || !allRegistrations.length) return 0;
-
-    const getDescendantIds = (parentIds: string[]): string[] => {
-      const children = allActivities
-        .filter((a) => a.parentId && parentIds.includes(a.parentId))
-        .map((a) => a.id)
-      
-      if (children.length === 0) return []
-      return [...children, ...getDescendantIds(children)]
-    }
-
-    const targetIds = [activity.id, ...getDescendantIds([activity.id])]
-    
-    return allRegistrations.filter((reg) => targetIds.includes(reg.activityId)).length
-  }, [activity.id, allActivities, allRegistrations])
+  const handleMainClick = () => {
+    // Use slug if available, otherwise fallback to ID
+    const targetIdentifier = activity.slug || activity.id
+    console.log(`[CARD CLICK] Name: ${activity.name} | Passing Identifier: ${targetIdentifier}`)
+    onClick(targetIdentifier)
+  }
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onClick(activity.slug)}
+      onClick={handleMainClick}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onClick(activity.slug);
+        if (e.key === "Enter" || e.key === " ") handleMainClick()
       }}
       className="w-full rounded-xl border border-gray-800 bg-gray-900 p-4 text-left transition hover:bg-gray-800/50 cursor-pointer shadow-sm"
     >
@@ -97,7 +79,7 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
         <div className="flex flex-col gap-1 text-gray-400">
           {hasTiming && (
             <span className="font-mono">
-              {formatDateTime(activity.startTime!)}
+              {formatDateTime(new Date(activity.startTime!))}
             </span>
           )}
           <span className={`capitalize ${statusStyles[activity.status]}`}>
@@ -115,7 +97,8 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
           title="View registrations"
         >
           <span className="text-blue-400">👤</span>
-          <span>{totalRegistrations}</span>
+          {/* Display the pre-computed registration count */}
+          <span>{stats?.totalRegistrations ?? 0}</span>
         </button>
       </div>
     </div>

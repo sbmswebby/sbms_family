@@ -1,6 +1,17 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Activity, Registration } from "@/types/types";
 
+/**
+ * Helper to generate a URL-friendly slug from a string
+ */
+const slugify = (text: string): string => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')     // Remove non-word chars (except spaces and hyphens)
+    .replace(/[\s_-]+/g, '-')     // Replace spaces and underscores with a single hyphen
+    .replace(/^-+|-+$/g, '');     // Trim hyphens from start and end
+};
 
 /**
  * Fetches all activities from Supabase.
@@ -21,30 +32,41 @@ export const fetchAllActivities = async (): Promise<Activity[]> => {
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
-  if (error) {
+  if (error || !data) {
     console.error("Error fetching activities:", error);
     return [];
   }
 
   // Helper to determine if an activity has children based on the current set
-  const checkHasChildren = (id: string) => data.some(item => item.parent_activity_id === id);
+  const checkHasChildren = (id: string) => 
+    data.some(item => item.parent_activity_id === id);
 
-  return data.map((item) => ({
-    id: item.id,
-    name: item.name,
-    slug: item.short_code || item.id,
-    parentId: item.parent_activity_id,
-    hasChildren: checkHasChildren(item.id),
-    startTime: item.start_time ? new Date(item.start_time) : null,
-    endTime: item.end_time ? new Date(item.end_time) : null,
-    status: item.status as Activity['status'],
-    registrationCounts: item.vw_activity_stats?.[0] ? {
-      total: Number(item.vw_activity_stats[0].total_registrations),
-      registered: Number(item.vw_activity_stats[0].registered_count),
-      completed: Number(item.vw_activity_stats[0].completed_count),
-      cancelled: Number(item.vw_activity_stats[0].cancelled_count),
-    } : { total: 0, registered: 0, completed: 0, cancelled: 0 }
-  }));
+  console.log(`[API] Mapping ${data.length} activities...`);
+
+  return data.map((item) => {
+    // GENERATE SLUG: Use short_code if it exists, otherwise slugify the name
+    const generatedSlug = item.short_code || slugify(item.name);
+    
+    // Log the mapping so you can see it in your terminal
+    console.log(`Mapped: "${item.name}" -> slug: "${generatedSlug}"`);
+
+    return {
+      id: item.id,
+      name: item.name,
+      slug: generatedSlug, // This ensures slugs are never undefined or UUIDs (unless intended)
+      parentId: item.parent_activity_id,
+      hasChildren: checkHasChildren(item.id),
+      startTime: item.start_time ? new Date(item.start_time) : null,
+      endTime: item.end_time ? new Date(item.end_time) : null,
+      status: item.status as Activity['status'],
+      registrationCounts: item.vw_activity_stats?.[0] ? {
+        total: Number(item.vw_activity_stats[0].total_registrations),
+        registered: Number(item.vw_activity_stats[0].registered_count),
+        completed: Number(item.vw_activity_stats[0].completed_count),
+        cancelled: Number(item.vw_activity_stats[0].cancelled_count),
+      } : { total: 0, registered: 0, completed: 0, cancelled: 0 }
+    };
+  });
 };
 
 /**
@@ -76,36 +98,18 @@ export const fetchAllRegistrations = async (): Promise<Registration[]> => {
 };
 
 /**
- * Filters activities by parentId.
+ * Utility Filters
  */
-export const getChildActivities = (
-  activities: Activity[],
-  parentId: string | null
-): Activity[] => {
+export const getChildActivities = (activities: Activity[], parentId: string | null): Activity[] => {
   return activities.filter((activity) => activity.parentId === parentId);
 };
 
-/**
- * Returns all registrations for a given activity.
- */
-export const getRegistrationsForActivity = (
-  registrations: Registration[],
-  activityId: string
-): Registration[] => {
+export const getRegistrationsForActivity = (registrations: Registration[], activityId: string): Registration[] => {
   return registrations.filter((reg) => reg.activityId === activityId);
 };
 
-/**
- * Returns registration count summary for a given activity.
- * Note: While fetchAllActivities brings this data from a view, 
- * this utility remains for runtime filtering/re-calculation.
- */
-export const getRegistrationCountsForActivity = (
-  registrations: Registration[],
-  activityId: string
-) => {
+export const getRegistrationCountsForActivity = (registrations: Registration[], activityId: string) => {
   const filtered = registrations.filter((r) => r.activityId === activityId);
-
   return {
     total: filtered.length,
     registered: filtered.filter((r) => r.status === "registered").length,

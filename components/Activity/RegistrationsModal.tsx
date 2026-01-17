@@ -1,51 +1,24 @@
-// RegistrationsModal.tsx
 "use client"
 
-import React, { useMemo } from "react";
+import React from "react";
 import { Activity, Registration } from "@/types/types";
-
 
 interface RegistrationsModalProps {
   activity: Activity;
   onClose: () => void;
   onAddRegistration: (activityId: string) => void;
-  /** * Passed down from the parent container after fetchAllActivities() 
+  /** * New: Pass only the registrations relevant to this activity 
+   * (already filtered by the parent)
    */
-  allActivities: Activity[];
-  /** * Passed down from the parent container after fetchAllRegistrations() 
-   */
-  allRegistrations: Registration[];
+  registrations: Registration[];
 }
 
 export const RegistrationsModal: React.FC<RegistrationsModalProps> = ({
   activity,
   onClose,
   onAddRegistration,
-  allActivities,
-  allRegistrations,
+  registrations = [], // Default to empty array
 }) => {
-  
-  /**
-   * Recursively finds all registrations for the current activity 
-   * AND all its sub-activities (descendants).
-   */
-  const relevantRegistrations = useMemo(() => {
-    // Safety check for empty data
-    if (!allActivities.length || !allRegistrations.length) return [];
-
-    const getDescendantIds = (parentIds: string[]): string[] => {
-      const children = allActivities
-        .filter((a) => a.parentId && parentIds.includes(a.parentId))
-        .map((a) => a.id);
-      
-      if (children.length === 0) return [];
-      return [...children, ...getDescendantIds(children)];
-    };
-
-    const targetIds = [activity.id, ...getDescendantIds([activity.id])];
-    return allRegistrations.filter((reg) => targetIds.includes(reg.activityId));
-  }, [activity.id, allActivities, allRegistrations]);
-
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
@@ -60,7 +33,7 @@ export const RegistrationsModal: React.FC<RegistrationsModalProps> = ({
           <div>
             <h2 className="text-xl font-bold tracking-tight">{activity.name}</h2>
             <p className="text-sm text-gray-400">
-              {relevantRegistrations.length} registered participants
+              {registrations.length} registered participants
             </p>
           </div>
           <button 
@@ -73,16 +46,15 @@ export const RegistrationsModal: React.FC<RegistrationsModalProps> = ({
 
         {/* List */}
         <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-          {relevantRegistrations.length === 0 ? (
+          {registrations.length === 0 ? (
             <div className="text-center py-12">
               <span className="text-4xl">👥</span>
               <p className="mt-2 text-sm text-gray-500 font-medium">No registrations yet</p>
             </div>
           ) : (
-            relevantRegistrations.map((reg) => (
+            registrations.map((reg) => (
               <div key={reg.id} className="flex items-center justify-between gap-4 border-b border-gray-800 py-3 last:border-0 hover:bg-gray-800/50 px-2 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">
-                  {/* Avatar/Photo Support */}
                   {reg.person.photoUrl ? (
                     <img 
                       src={reg.person.photoUrl} 
