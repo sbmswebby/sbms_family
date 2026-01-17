@@ -1,5 +1,7 @@
+//ActivitiesApi.ts
+
 import { supabase } from "@/lib/supabaseClient";
-import { Activity, Registration } from "@/types/types";
+import {VW_ActivityStats , Registration } from "@/types/types";
 
 /**
  * Helper to generate a URL-friendly slug from a string
@@ -17,7 +19,7 @@ const slugify = (text: string): string => {
  * Fetches all activities from Supabase.
  * Maps DB columns (parent_activity_id) to UI types (parentId).
  */
-export const fetchAllActivities = async (): Promise<Activity[]> => {
+export const fetchAllActivities = async (): Promise<VW_ActivityStats[]> => {
   const { data, error } = await supabase
     .from('activities')
     .select(`
@@ -58,7 +60,7 @@ export const fetchAllActivities = async (): Promise<Activity[]> => {
       hasChildren: checkHasChildren(item.id),
       startTime: item.start_time ? new Date(item.start_time) : null,
       endTime: item.end_time ? new Date(item.end_time) : null,
-      status: item.status as Activity['status'],
+      status: item.status as VW_ActivityStats['status'],
       registrationCounts: item.vw_activity_stats?.[0] ? {
         total: Number(item.vw_activity_stats[0].total_registrations),
         registered: Number(item.vw_activity_stats[0].registered_count),
@@ -100,7 +102,7 @@ export const fetchAllRegistrations = async (): Promise<Registration[]> => {
 /**
  * Utility Filters
  */
-export const getChildActivities = (activities: Activity[], parentId: string | null): Activity[] => {
+export const getChildActivities = (activities: VW_ActivityStats[], parentId: string | null): VW_ActivityStats[] => {
   return activities.filter((activity) => activity.parentId === parentId);
 };
 

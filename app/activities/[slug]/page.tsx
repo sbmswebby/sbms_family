@@ -1,7 +1,7 @@
 // app/activities/[slug]/page.tsx (Server Component)
 
+import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/ActivitiesApi";
 import { ActivityPageBySlug } from "@/components/Activity/ActivityPageBySlug";
-import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/demoActivities";
 
 export default async function ActivityPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;

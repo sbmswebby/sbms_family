@@ -2,56 +2,18 @@
 
 import React, { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Activity, Registration } from "@/types/types"
+import { VW_ActivityStats, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 import { RegistrationsModal } from "@/components/Activity/RegistrationsModal"
+import { buildActivityStats } from "./ActivityUtils"
 
 interface ActivityPageBySlugProps {
-  activities: Activity[]
+  activities: VW_ActivityStats[]
   allRegistrations: Registration[]
   slug: string
 }
 
-/**
- * Centralized activity statistics builder
- */
-const buildActivityStats = (
-  activities: Activity[],
-  registrations: Registration[]
-): Record<string, { totalRegistrations: number; childCount: number }> => {
-  const childrenMap: Record<string, string[]> = {}
 
-  for (const activity of activities) {
-    if (activity.parentId) {
-      if (!childrenMap[activity.parentId]) childrenMap[activity.parentId] = []
-      childrenMap[activity.parentId].push(activity.id)
-    }
-  }
-
-  const getDescendants = (id: string): string[] => {
-    const directChildren = childrenMap[id] ?? []
-    return directChildren.flatMap(childId => [
-      childId,
-      ...getDescendants(childId),
-    ])
-  }
-
-  const stats: Record<string, { totalRegistrations: number; childCount: number }> = {}
-
-  for (const activity of activities) {
-    const descendantIds = getDescendants(activity.id)
-    const relevantIds = [activity.id, ...descendantIds]
-
-    stats[activity.id] = {
-      childCount: descendantIds.length,
-      totalRegistrations: registrations.filter(reg =>
-        relevantIds.includes(reg.activityId)
-      ).length,
-    }
-  }
-
-  return stats
-}
 
 export const ActivityPageBySlug: React.FC<ActivityPageBySlugProps> = ({
   activities,

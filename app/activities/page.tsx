@@ -1,18 +1,24 @@
 "use client" // This must be at the very top
 
 import React, { useMemo, useEffect, useState } from "react"
-import { Activity, Registration } from "@/types/types"
+import { VW_ActivityStats, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
-import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/demoActivities"
 import { useRouter } from "next/navigation"
+import { fetchAllActivities, fetchAllRegistrations } from "@/components/Activity/ActivitiesApi"
+import { buildActivityStats } from "@/components/Activity/ActivityUtils"
 
 export default function ActivitiesPage() {
   const router = useRouter()
   
   // 1. State for data (since it's a client component)
-  const [activities, setActivities] = useState<Activity[]>([])
+  const [activities, setActivities] = useState<VW_ActivityStats[]>([])
   const [allRegistrations, setAllRegistrations] = useState<Registration[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+    const activityStats = useMemo(
+      () => buildActivityStats(activities, allRegistrations),
+      [activities, allRegistrations]
+    )
 
   // 2. Fetch data on mount
   useEffect(() => {
@@ -70,8 +76,9 @@ export default function ActivitiesPage() {
 
         <ActivityGrid
           title="Root Events"
-          activities={rootActivities} 
-          allActivities={activities}    
+          activities={rootActivities}
+          activityStats={activityStats} 
+          allActivities={activities} 
           allRegistrations={allRegistrations} 
           onActivityClick={(slug) => {
             router.push(`/activities/${slug}`)

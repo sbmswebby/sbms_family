@@ -2,14 +2,14 @@
 
 import React, { useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Activity, Registration } from "@/types/types"
+import { VW_ActivityStats, Registration } from "@/types/types"
 import { ActivityGrid } from "@/components/Activity/ActivityGrid"
 
 /**
  * Props for the root activities page
  */
 interface ActivitiesRootPageComponentProps {
-  activities: Activity[]
+  activities: VW_ActivityStats[]
   allRegistrations: Registration[]
 }
 
@@ -18,7 +18,7 @@ interface ActivitiesRootPageComponentProps {
  * Computed once at the page level.
  */
 const buildActivityStats = (
-  activities: Activity[],
+  activities: VW_ActivityStats[],
   registrations: Registration[]
 ): Record<string, { totalRegistrations: number; childCount: number }> => {
   const childrenMap: Record<string, string[]> = {}

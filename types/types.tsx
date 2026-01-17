@@ -4,7 +4,7 @@
  * UI-safe Activity model
  * Derived from vw_activity_stats + activities
  */
-export interface Activity {
+export interface VW_ActivityStats {
   id: string
   name: string
   slug: string
@@ -14,7 +14,6 @@ export interface Activity {
 
   startTime: Date | null
   endTime: Date | null
-
   status: "draft" | "live" | "completed" | "cancelled"
 
   registrationCounts?: {
