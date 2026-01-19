@@ -24,48 +24,51 @@ export const ActivityGrid: React.FC<ActivityGridProps> = ({
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
   const [modalRegistrations, setModalRegistrations] = useState<Registration[]>([])
   const [isModalLoading, setIsModalLoading] = useState(false)
+  
+  // 1. Keep track of the filtered list from the Search/Filter bar
+  const [filteredActivities, setFilteredActivities] = useState<VW_ActivityStats[]>(activities)
 
-  // Initialize state with sorted data immediately
-  const [displayActivities, setDisplayActivities] = useState<VW_ActivityStats[]>(() => 
-    [...activities].sort((a, b) => {
+  // 2. Sync filteredActivities when the raw activities prop changes
+  // This is safe because we're just updating the 'base' list for the filter bar
+  useEffect(() => {
+    setFilteredActivities(activities)
+  }, [activities])
+
+  // 3. Derive the final display list using useMemo
+  // This sorts the list so "free_registrations" is always first
+  const displayActivities = useMemo(() => {
+    return [...filteredActivities].sort((a, b) => {
+      const isAFree = a.name === 'free_registrations';
+      const isBFree = b.name === 'free_registrations';
+
+      if (isAFree && !isBFree) return -1;
+      if (!isAFree && isBFree) return 1;
+
       const dateA = a.startTime ? new Date(a.startTime).getTime() : 0;
       const dateB = b.startTime ? new Date(b.startTime).getTime() : 0;
       return dateB - dateA;
-    })
-  )
+    });
+  }, [filteredActivities]);
 
-  // Fetch registrations only when modal is opened
+  // Modal loading logic
   useEffect(() => {
-    // Early return if no activity selected - state will reset naturally
     if (!selectedActivityId) return;
-
     let mounted = true;
-    const activityId = selectedActivityId; // Capture non-null value
-
     async function loadModalData() {
-      if (!mounted) return;
-      
       setIsModalLoading(true)
-      
-      const data = await fetchRegistrationsForActivity(activityId).catch((error) => {
-        console.error("Failed to load registrations for modal:", error)
-        return []
-      })
-      
-      if (!mounted) return;
-      
-      setModalRegistrations(data)
-      setIsModalLoading(false)
+      try {
+        const data = await fetchRegistrationsForActivity(selectedActivityId!)
+        if (mounted) setModalRegistrations(data)
+      } catch (error) {
+        console.error("Failed to load registrations:", error)
+      } finally {
+        if (mounted) setIsModalLoading(false)
+      }
     }
-
     loadModalData()
-    
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [selectedActivityId])
 
-  // Reset modal data when closing
   const handleCloseModal = () => {
     setSelectedActivityId(null)
     setModalRegistrations([])
@@ -89,7 +92,7 @@ export const ActivityGrid: React.FC<ActivityGridProps> = ({
       {!isHardEmpty && (
         <ActivityFilterBar 
           activities={activities} 
-          onFilterChange={setDisplayActivities} 
+          onFilterChange={setFilteredActivities} 
         />
       )}
 
@@ -113,9 +116,6 @@ export const ActivityGrid: React.FC<ActivityGridProps> = ({
               <Inbox className="w-8 h-8 text-gray-600" />
             </div>
             <h3 className="text-gray-200 font-semibold">No Activities Found</h3>
-            <p className="text-gray-500 text-sm mt-1 max-w-xs text-balance">
-              There aren&apos;t any activities assigned to this section yet.
-            </p>
           </div>
         )}
 
@@ -125,9 +125,6 @@ export const ActivityGrid: React.FC<ActivityGridProps> = ({
               <SearchX className="w-8 h-8 text-blue-500" />
             </div>
             <h3 className="text-gray-200 font-semibold">No matches found</h3>
-            <p className="text-gray-500 text-sm mt-1">
-              Try adjusting your filters or search terms.
-            </p>
           </div>
         )}
       </div>
